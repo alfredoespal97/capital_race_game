@@ -1,14 +1,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
-import 'package:myapp/src/widgets/educational_popup.dart';
+import 'package:capital_race/src/widgets/educational_popup.dart';
 import 'package:provider/provider.dart';
 
-import 'package:myapp/src/game/capital_race_game.dart';
-import 'package:myapp/src/models/bot_profile.dart';
-import 'package:myapp/src/widgets/player_hud.dart';
-import 'package:myapp/src/game_state.dart';
-import 'package:myapp/src/widgets/buy_dialog.dart';
+import 'package:capital_race/src/game/capital_race_game.dart';
+import 'package:capital_race/src/models/bot_profile.dart';
+import 'package:capital_race/src/widgets/player_hud.dart';
+import 'package:capital_race/src/game_state.dart';
+import 'package:capital_race/src/widgets/buy_dialog.dart';
 
 class GameScreenWrapper extends StatelessWidget {
   final BotProfile botProfile;
@@ -19,6 +19,7 @@ class GameScreenWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     final game = CapitalRaceGame(botProfile: botProfile);
     globalGameState = GameState(game: game);
+    game.globalGameState = globalGameState;
 
     return MultiProvider(
       providers: [
@@ -36,7 +37,7 @@ class GameScreen extends StatefulWidget {
   const GameScreen({super.key, required this.game});
 
   @override
-  _GameScreenState createState() => _GameScreenState();
+  State<GameScreen> createState() => _GameScreenState();
 }
 
 class _GameScreenState extends State<GameScreen> {
@@ -46,49 +47,30 @@ class _GameScreenState extends State<GameScreen> {
     final gameState = context.watch<GameState>();
 
     return Scaffold(
+      backgroundColor: Colors.black, 
       body: Stack(
         children: [
           GameWidget(game: widget.game),
 
-          PlayerHud(
-            player: widget.game.player1,
-            avatarAsset: 'assets/images/player_avatar.svg',
-            alignment: Alignment.topLeft,
-          ),
-          PlayerHud(
-            player: widget.game.bot,
-            avatarAsset: 'assets/images/bot_avatar.svg',
-            alignment: Alignment.topRight,
-          ),
+          const PlayerHUD(),
 
-          Positioned(
-            bottom: 20,
-            right: 20,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15)),
-              onPressed: () {
-                // Bloquear el dado si hay algún popup en pantalla
-                if (gameState.propertyToBuy == null && gameState.educationalContentToShow == null) {
-                  widget.game.rollDiceAndMove();
-                }
-              },
-              child: const Text('Lanzar Dados', style: TextStyle(fontSize: 16)),
-            ),
-          ),
-
-          // Popup para comprar propiedades
           if (gameState.propertyToBuy != null)
             BuyDialog(
               property: gameState.propertyToBuy!,
-              onBuy: (property) => widget.game.buyProperty(property),
-              onDecline: () => widget.game.declineProperty(),
+              onBuy: () {
+                widget.game.playerBuyProperty();
+              },
+              onDecline: () {
+                widget.game.playerPassProperty();
+              },
             ),
-
-          // Popup educativo
+          
           if (gameState.educationalContentToShow != null)
             EducationalPopup(
               content: gameState.educationalContentToShow!,
-              onDismiss: () => globalGameState.dismissEducationalContent(),
+              onDismiss: () {
+                gameState.clearEducationalContent();
+              },
             ),
         ],
       ),

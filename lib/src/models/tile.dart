@@ -1,5 +1,5 @@
 
-import 'package:myapp/src/models/property.dart';
+import 'package:capital_race/src/models/property.dart';
 
 abstract class Tile {
   String get name;

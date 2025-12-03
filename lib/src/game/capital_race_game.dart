@@ -3,21 +3,20 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flame_audio/flame_audio.dart';
-import 'package:provider/provider.dart';
 
-import 'package:myapp/src/game_state.dart';
-import 'package:myapp/src/game/board.dart';
-import 'package:myapp/src/models/player.dart';
-import 'package:myapp/src/models/bot_player.dart';
-import 'package:myapp/src/models/bot_profile.dart';
-import 'package:myapp/src/game/player_piece.dart';
-import 'package:myapp/src/game/dice.dart';
-import 'package:myapp/src/models/tile.dart';
-import 'package:myapp/src/models/property.dart';
-import 'package:myapp/src/game/tile_component.dart';
-import 'package:myapp/src/game/house_component.dart';
-import 'package:myapp/src/models/educational_content.dart';
-import 'package:myapp/src/game/board_config.dart'; 
+import 'package:capital_race/src/game_state.dart';
+import 'package:capital_race/src/game/board.dart';
+import 'package:capital_race/src/models/player.dart';
+import 'package:capital_race/src/models/bot_player.dart';
+import 'package:capital_race/src/models/bot_profile.dart';
+import 'package:capital_race/src/game/player_piece.dart';
+import 'package:capital_race/src/game/dice.dart';
+import 'package:capital_race/src/models/tile.dart';
+import 'package:capital_race/src/models/property.dart';
+import 'package:capital_race/src/game/tile_component.dart';
+import 'package:capital_race/src/game/house_component.dart';
+import 'package:capital_race/src/models/educational_content.dart';
+import 'package:capital_race/src/game/board_config.dart';
 
 enum Turn { player1, bot }
 
@@ -30,16 +29,14 @@ class CapitalRaceGame extends FlameGame {
   late final Dice dice;
   Turn currentTurn = Turn.player1;
 
-  // Getter para obtener todas las propiedades del tablero
-  List<Property> get _allProperties => board.properties; // Usamos el nuevo getter
+  List<Property> get _allProperties => board.properties;
 
   late GameState globalGameState;
 
   CapitalRaceGame({required BotProfile botProfile}) {
     player1 = Player(name: 'Jugador 1', capital: 1500, pieceColor: const Color(0xFF3E64FF));
     bot = BotPlayer(name: 'Bot', capital: 1500, pieceColor: const Color(0xFFFF4E4E), profile: botProfile);
-    // CORREGIDO: Se instancia 'dice' en el constructor para evitar el LateInitializationError.
-    dice = Dice(); 
+    dice = Dice();
   }
 
   @override
@@ -52,8 +49,8 @@ class CapitalRaceGame extends FlameGame {
     botPiece = PlayerPiece(player: bot, board: board, svgAssetPath: 'assets/images/bot_avatar.svg');
     add(player1Piece);
     add(botPiece);
-    dice.position = Vector2(800, 600); // Se configura la posición
-    add(dice); // Y se añade al juego
+    dice.position = Vector2(800, 600);
+    add(dice);
   }
 
   Future<void> _initAudio() async {
@@ -70,8 +67,8 @@ class CapitalRaceGame extends FlameGame {
       final newIndex = (player1Piece.currentTileIndex + dice.totalRoll) % board.tiles.length;
       await player1Piece.moveTo(newIndex);
       _handleTileAction(player1, newIndex);
-      
-      if(globalGameState.propertyToBuy == null) {
+
+      if (globalGameState.propertyToBuy == null && globalGameState.educationalContentToShow == null) {
         _handleBotTurn();
       }
     }
@@ -95,17 +92,21 @@ class CapitalRaceGame extends FlameGame {
     if (tile is PropertyTile) {
       final property = tile.property;
       if (property.owner == null) {
-        // La propiedad no tiene dueño, la ponemos a la venta
-        globalGameState.setPropertyToBuy(property);
+        if (player is BotPlayer) {
+          if (bot.shouldBuyProperty(property, _allProperties) && bot.canAfford(property.price)) {
+            bot.buyProperty(property);
+            FlameAudio.play('buy_property.wav');
+          }
+        } else { 
+          globalGameState.setPropertyToBuy(property);
+        }
       } else if (property.owner != player) {
-        // Pagar alquiler
         player.payRent(property);
         property.owner!.receiveRent(property);
         FlameAudio.play('pay_rent.wav');
-      } 
+      }
     } else if (tile is SpecialTile) {
-      // Lógica para casillas especiales (impuestos, etc.)
-       switch (tile.type) {
+      switch (tile.type) {
         case SpecialTileType.tax:
           player.pay(200);
           break;
@@ -116,7 +117,9 @@ class CapitalRaceGame extends FlameGame {
           break;
       }
     } else if (tile is EventTile) {
+      if (player is! BotPlayer) {
         globalGameState.setEducationalContent(getRandomEducationalContent(tile.type));
+      }
     }
   }
 
@@ -130,30 +133,29 @@ class CapitalRaceGame extends FlameGame {
     _handleBotTurn();
   }
 
-  void botDecideBuyOrPass() {
-    final property = globalGameState.propertyToBuy;
-    if (property != null) {
-      if (bot.shouldBuyProperty(property, _allProperties)) {
-        if (bot.canAfford(property.price)) {
-          bot.buyProperty(property);
-          FlameAudio.play('buy_property.wav');
-        }
-      }
-      globalGameState.clearPropertyToBuy();
+  void playerPassProperty() {
+    globalGameState.clearPropertyToBuy();
+    _handleBotTurn();
+  }
+
+  void buildHouseForPlayer(Property property) {
+    if (player1.canBuildHouse(property, _allProperties)) {
+      player1.buildHouse(property, _allProperties);
+      FlameAudio.play('build_house.mp3');
     }
   }
 
   void _executeBotBuildPhase() {
-    for (final property in bot.ownedProperties.toList()) { 
+    for (final property in bot.ownedProperties.toList()) {
       if (bot.shouldBuildHouse(property, _allProperties)) {
-        bot.buildHouse(property, _allProperties); 
+        bot.buildHouse(property, _allProperties);
         FlameAudio.play('build_house.mp3');
 
         final tileIndex = board.tiles.indexWhere((t) => t is PropertyTile && t.property == property);
         if (tileIndex != -1) {
-          final tileComp = board.children.firstWhere((c) => c is TileComponent && c.tile == board.tiles[tileIndex]) as TileComponent; 
+          final tileComp = board.children.firstWhere((c) => c is TileComponent && c.tile == board.tiles[tileIndex]) as TileComponent;
           final house = HouseComponent(houseNumber: property.houseCount)..position = tileComp.size / 2;
-          tileComp.add(house); 
+          tileComp.add(house);
         }
       }
     }
@@ -162,6 +164,5 @@ class CapitalRaceGame extends FlameGame {
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
-    // Podríamos querer escalar o reposicionar elementos aquí si el tamaño cambia.
   }
 }

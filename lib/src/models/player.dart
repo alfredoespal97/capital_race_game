@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import 'package:myapp/src/models/property.dart';
+import 'package:capital_race/src/models/property.dart';
 
 class Player with ChangeNotifier {
   final String name;

@@ -1,9 +1,9 @@
 
 import 'package:flame/components.dart';
-import 'package:myapp/src/models/tile.dart';
-import 'package:myapp/src/game/board_config.dart';
-import 'package:myapp/src/game/tile_component.dart'; 
-import 'package:myapp/src/models/property.dart';
+import 'package:capital_race/src/models/tile.dart';
+import 'package:capital_race/src/game/board_config.dart';
+import 'package:capital_race/src/game/tile_component.dart'; 
+import 'package:capital_race/src/models/property.dart';
 
 class Board extends PositionComponent {
   final int tilesPerSide = 9; 

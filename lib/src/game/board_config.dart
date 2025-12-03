@@ -1,8 +1,8 @@
 
 import 'package:flutter/material.dart';
-import 'package:myapp/src/models/property.dart';
-import 'package:myapp/src/models/tile.dart';
-import 'package:myapp/src/models/educational_content.dart'; // Importación añadida
+import 'package:capital_race/src/models/property.dart';
+import 'package:capital_race/src/models/tile.dart';
+import 'package:capital_race/src/models/educational_content.dart'; // Importación añadida
 
 final Map<String, Color> sectorColors = {
   'Agricultura': Colors.green.shade700,

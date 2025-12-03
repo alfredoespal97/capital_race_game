@@ -1,5 +1,5 @@
 
-import 'package:myapp/src/models/player.dart';
+import 'package:capital_race/src/models/player.dart';
 
 class Property {
   final String name;

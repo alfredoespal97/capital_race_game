@@ -4,8 +4,8 @@ import 'package:flame/effects.dart';
 import 'package:flame_svg/flame_svg.dart';
 import 'package:flame_audio/flame_audio.dart';
 
-import 'package:myapp/src/game/board.dart';
-import 'package:myapp/src/models/player.dart';
+import 'package:capital_race/src/game/board.dart';
+import 'package:capital_race/src/models/player.dart';
 
 class PlayerPiece extends PositionComponent {
   final Player player;

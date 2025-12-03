@@ -4,9 +4,9 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:myapp/src/models/tile.dart';
-import 'package:myapp/src/game/tile_icon_mapper.dart'; // El mapa 'tileIcons' se usa desde aquí
-import 'package:myapp/src/game/board_config.dart';
+import 'package:capital_race/src/models/tile.dart';
+import 'package:capital_race/src/game/tile_icon_mapper.dart'; // El mapa 'tileIcons' se usa desde aquí
+import 'package:capital_race/src/game/board_config.dart';
 
 class TileComponent extends PositionComponent {
   final Tile tile;

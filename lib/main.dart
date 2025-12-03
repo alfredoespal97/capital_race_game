@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:myapp/src/screens/home_screen.dart';
-import 'package:myapp/src/screens/difficulty_selection_screen.dart';
+import 'package:capital_race/src/screens/home_screen.dart';
+import 'package:capital_race/src/screens/difficulty_selection_screen.dart';
 
 // La referencia global se obtiene del nuevo archivo
-export 'package:myapp/src/game_state.dart' show globalGameState;
+export 'package:capital_race/src/game_state.dart' show globalGameState;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

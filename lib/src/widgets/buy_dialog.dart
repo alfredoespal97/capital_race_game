@@ -1,14 +1,16 @@
 
 import 'package:flutter/material.dart';
-import 'package:myapp/src/models/property.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import 'package:capital_race/src/models/property.dart';
 
 class BuyDialog extends StatelessWidget {
   final Property property;
-  final Function(Property) onBuy;
+  final VoidCallback onBuy;
   final VoidCallback onDecline;
 
   const BuyDialog({
-    super.key, 
+    super.key,
     required this.property,
     required this.onBuy,
     required this.onDecline,
@@ -17,34 +19,74 @@ class BuyDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.black.withOpacity(0.5),
+      color: Colors.black.withOpacity(0.7),
       child: Center(
         child: Material(
           color: Colors.transparent,
           child: Container(
-            padding: const EdgeInsets.all(20),
+            width: 300,
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.25),
+                  blurRadius: 20,
+                  spreadRadius: 5,
+                )
+              ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('¿Comprar ${property.name}?', style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 10),
-                Text('Sector: ${property.sector}'),
-                Text('Precio: \$${property.price.toStringAsFixed(0)}'),
-                const SizedBox(height: 20),
+                Text(
+                  'Oportunidad de Inversión',
+                  style: GoogleFonts.poppins(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  property.name,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.lato(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Sector: ${property.sector}',
+                  style: GoogleFonts.lato(fontSize: 16, color: Colors.black54),
+                ),
+                const SizedBox(height: 8),
+                 Text(
+                  'Precio: \$${property.price.toStringAsFixed(0)}',
+                  style: GoogleFonts.lato(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green[700]),
+                ),
+                const SizedBox(height: 24),
                 Row(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    TextButton(
-                      onPressed: onDecline,
-                      child: const Text('No, gracias'),
-                    ),
-                    const SizedBox(width: 10),
                     ElevatedButton(
-                      onPressed: () => onBuy(property),
+                      onPressed: onDecline,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey[300],
+                        foregroundColor: Colors.black87,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text('Pasar'),
+                    ),
+                    ElevatedButton(
+                      onPressed: onBuy,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
                       child: const Text('¡Comprar!'),
                     ),
                   ],

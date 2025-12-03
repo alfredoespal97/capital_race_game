@@ -1,9 +1,9 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:myapp/src/models/player.dart';
-import 'package:myapp/src/models/property.dart';
-import 'package:myapp/src/models/bot_profile.dart';
+import 'package:capital_race/src/models/player.dart';
+import 'package:capital_race/src/models/property.dart';
+import 'package:capital_race/src/models/bot_profile.dart';
 
 class BotPlayer extends Player {
   final BotProfile profile;

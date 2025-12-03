@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:myapp/src/models/educational_content.dart';
+import 'package:capital_race/src/models/educational_content.dart';
 
 class EducationalPopup extends StatelessWidget {
   final EducationalContent content;

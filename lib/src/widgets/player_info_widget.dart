@@ -1,7 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:myapp/src/models/player.dart';
+import 'package:capital_race/src/models/player.dart';
 
 class PlayerInfoWidget extends StatelessWidget {
   final Alignment alignment;

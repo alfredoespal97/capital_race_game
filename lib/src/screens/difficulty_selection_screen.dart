@@ -1,8 +1,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:myapp/src/models/bot_profile.dart';
-import 'package:myapp/src/screens/game_screen.dart'; // Importaremos la pantalla de juego
+import 'package:capital_race/src/models/bot_profile.dart';
+import 'package:capital_race/src/screens/game_screen.dart'; // Importaremos la pantalla de juego
 
 class DifficultySelectionScreen extends StatelessWidget {
   const DifficultySelectionScreen({super.key});
