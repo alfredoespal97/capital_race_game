@@ -52,12 +52,26 @@ class GameProvider with ChangeNotifier {
   }
 
   void initializeGame(List<Player> players) {
+    _resetGame();
     setPlayers(players);
+  }
+
+  void _resetGame() {
+    _initGame(); // Resets board spaces
+    _currentPlayerIndex = 0;
+    _dice1 = 1;
+    _dice2 = 1;
+    _hasRolledDice = false;
+    _doublesCount = 0;
+    _gameMessage = "New Game Started!";
+    _currentCardDialog = null;
+    _hasSaveFile =
+        false; // Reset persistence flag for live state, though file persists
+    // Note: We don't delete the save file on disk here, but the new state will overwrite it on next save.
   }
 
   void setPlayers(List<Player> players) {
     _players = players;
-    _currentPlayerIndex = 0;
     _gameMessage = '${currentPlayer.name}\'s turn!';
     notifyListeners();
   }
@@ -674,34 +688,40 @@ class GameProvider with ChangeNotifier {
   // --- Persistence Methods ---
 
   Future<void> saveGame() async {
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    // Serialize Players
-    List<Map<String, dynamic>> playersJson = _players
-        .map((p) => p.toJson())
-        .toList();
+      // Serialize Players
+      List<Map<String, dynamic>> playersJson = _players
+          .map((p) => p.toJson())
+          .toList();
 
-    // Serialize Properties (Only owned or modified ones to save space/time, or all)
-    List<Map<String, dynamic>> propertiesJson = [];
-    for (var space in _boardSpaces) {
-      if (space.property != null) {
-        propertiesJson.add(space.property!.toJson());
+      // Serialize Properties (Only owned or modified ones to save space/time, or all)
+      List<Map<String, dynamic>> propertiesJson = [];
+      for (var space in _boardSpaces) {
+        if (space.property != null) {
+          propertiesJson.add(space.property!.toJson());
+        }
       }
+
+      Map<String, dynamic> gameState = {
+        'players': playersJson,
+        'properties': propertiesJson,
+        'currentPlayerIndex': _currentPlayerIndex,
+        'dice1': _dice1,
+        'dice2': _dice2,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      await prefs.setString('monopoly_save_game', jsonEncode(gameState));
+      _hasSaveFile = true;
+      _gameMessage = "Game Saved!";
+      notifyListeners();
+    } catch (e) {
+      print("Error saving game: $e");
+      _gameMessage = "Failed to save game";
+      notifyListeners();
     }
-
-    Map<String, dynamic> gameState = {
-      'players': playersJson,
-      'properties': propertiesJson,
-      'currentPlayerIndex': _currentPlayerIndex,
-      'dice1': _dice1,
-      'dice2': _dice2,
-      'timestamp': DateTime.now().toIso8601String(),
-    };
-
-    await prefs.setString('monopoly_save_game', jsonEncode(gameState));
-    _hasSaveFile = true;
-    _gameMessage = "Game Saved!";
-    notifyListeners();
   }
 
   Future<bool> hasSavedGame() async {

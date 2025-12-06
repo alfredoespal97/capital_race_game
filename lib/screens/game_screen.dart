@@ -890,10 +890,15 @@ class _GameScreenState extends State<GameScreen> {
             child: const Text('CANCEL'),
           ),
           TextButton(
-            onPressed: () {
-              Provider.of<GameProvider>(context, listen: false).saveGame();
-              Navigator.pop(context);
-              Navigator.pop(context);
+            onPressed: () async {
+              await Provider.of<GameProvider>(
+                context,
+                listen: false,
+              ).saveGame();
+              if (context.mounted) {
+                Navigator.pop(context);
+                Navigator.pop(context);
+              }
             },
             child: const Text('SAVE & EXIT'),
           ),
