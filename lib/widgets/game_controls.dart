@@ -115,8 +115,22 @@ class GameControls extends StatelessWidget {
                               gameProvider.rollDice();
                             },
                     ),
+                    if (gameProvider.currentPlayer.getOutOfJailCards > 0) ...[
+                      const SizedBox(width: 16),
+                      _buildControlButton(
+                        context,
+                        label:
+                            'USE CARD (${gameProvider.currentPlayer.getOutOfJailCards})',
+                        icon: Icons.confirmation_number,
+                        color: Colors.purple,
+                        onPressed: () {
+                          gameProvider.useGetOutOfJailCard();
+                        },
+                      ),
+                    ],
                   ],
                 ),
+
                 const SizedBox(height: 12),
                 Text(
                   'Turns in jail: ${gameProvider.currentPlayer.jailTurns}/3',

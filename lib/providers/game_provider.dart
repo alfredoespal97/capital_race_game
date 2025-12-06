@@ -50,29 +50,23 @@ class GameProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Card Dialog Logic ---
   void clearCardDialog() {
     _currentCardDialog = null;
     notifyListeners();
-    // Logic after dialog closes:
-    // If Bot, it means the "viewing time" is over, proceed to end turn.
-    if (isCurrentPlayerBot) {
+    if (isCurrentPlayerBot && !currentPlayer.isBankrupt) {
       Future.delayed(const Duration(milliseconds: 500), endTurn);
     }
-    // If Human, they just closed the dialog, now they are back to board,
-    // and can choose to End Turn (or do other things if allowed).
-    // The dialog interaction is effectively "done".
   }
 
   Future<void> rollDice() async {
     if (_isRolling ||
-        (_hasRolledDice && _doublesCount == 0 && !currentPlayer.isInJail))
+        (_hasRolledDice && _doublesCount == 0 && !currentPlayer.isInJail) ||
+        currentPlayer.isBankrupt)
       return;
 
     _isRolling = true;
     notifyListeners();
 
-    // Animation effect
     for (int i = 0; i < 10; i++) {
       await Future.delayed(const Duration(milliseconds: 100));
       _dice1 = Random().nextInt(6) + 1;
@@ -83,8 +77,7 @@ class GameProvider with ChangeNotifier {
     _isRolling = false;
     _dice1 = Random().nextInt(6) + 1;
     _dice2 = Random().nextInt(6) + 1;
-    // For testing:
-    // _dice1 = 5; _dice2 = 5;
+    // _dice1 = 6; _dice2 = 6; // Testing doubles
 
     bool isDoubles = _dice1 == _dice2;
     int total = _dice1 + _dice2;
@@ -105,25 +98,21 @@ class GameProvider with ChangeNotifier {
 
       _movePlayer(total);
 
-      // Allow UI to update before processing landing
       await Future.delayed(const Duration(milliseconds: 500));
       _handleLanding();
 
       if (isDoubles) {
-        _gameMessage += ' Doubles! Roll again.';
-        _hasRolledDice =
-            false; // Allow rolling again, NO automatic continuation
-        if (isCurrentPlayerBot) {
-          // Bot needs to roll again automatically
-          Future.delayed(const Duration(seconds: 1), rollDice);
+        if (!currentPlayer.isBankrupt && !currentPlayer.isInJail) {
+          _gameMessage += ' Doubles! Roll again.';
+          _hasRolledDice = false;
+          if (isCurrentPlayerBot) {
+            Future.delayed(const Duration(seconds: 1), rollDice);
+          }
         }
       } else {
-        // Not doubles.
-        if (currentPlayer is! BotPlayer) {
-          // Human: Wait for End Turn click.
+        if (currentPlayer is! BotPlayer && !currentPlayer.isBankrupt) {
           _gameMessage += ' Turn complete.';
         }
-        // Bot: _handleLanding handles its own turn ending logic.
       }
     }
     notifyListeners();
@@ -136,25 +125,24 @@ class GameProvider with ChangeNotifier {
           '${currentPlayer.name} rolled doubles and got out of jail!';
       _movePlayer(_dice1 + _dice2);
       _handleLanding();
-      // If doubles to get out, normally you move and play.
-      // If Human -> End Turn manually or roll again? Rules say "move number rolled". usually turn ends unless doubles meant "roll again" (Monopoly rules vary on getting out with doubles).
-      // Standard: Roll doubles -> Get out -> Move -> Turn Ends (do not roll again).
 
       if (currentPlayer is BotPlayer) {
         Future.delayed(const Duration(seconds: 1), endTurn);
       } else {
-        _hasRolledDice = true; // Prevent re-roll
+        _hasRolledDice = true;
       }
     } else {
       currentPlayer.jailTurns++;
       if (currentPlayer.jailTurns >= 3) {
-        currentPlayer.subtractMoney(50);
-        currentPlayer.releaseFromJail();
-        _gameMessage =
-            '${currentPlayer.name} paid \$50 to get out (3 attempts).';
-        _movePlayer(_dice1 + _dice2);
-        _handleLanding();
-        if (currentPlayer is BotPlayer) {
+        _handlePayment(50, null); // Provide bank payment for jail
+        if (!currentPlayer.isBankrupt) {
+          currentPlayer.releaseFromJail();
+          _gameMessage =
+              '${currentPlayer.name} paid \$50 to get out (3 attempts).';
+          _movePlayer(_dice1 + _dice2);
+          _handleLanding();
+        }
+        if (currentPlayer is BotPlayer && !currentPlayer.isBankrupt) {
           Future.delayed(const Duration(seconds: 1), endTurn);
         }
       } else {
@@ -179,6 +167,7 @@ class GameProvider with ChangeNotifier {
   }
 
   void _handleLanding() {
+    if (currentPlayer.isBankrupt) return;
     BoardSpace space = _boardSpaces[currentPlayer.position];
     bool isBot = currentPlayer is BotPlayer;
 
@@ -196,13 +185,14 @@ class GameProvider with ChangeNotifier {
         break;
       case SpaceType.tax:
         _handleTax(space);
-        if (isBot) Future.delayed(const Duration(seconds: 1), endTurn);
+        if (isBot && !currentPlayer.isBankrupt)
+          Future.delayed(const Duration(seconds: 1), endTurn);
         break;
       case SpaceType.corner:
         _handleCorner(space);
-        // If corner is Go to Jail, it checks inside _handleCorner -> _sendToJail -> endTurn
-        // If Just Visiting or Free Parking:
-        if (space.action != 'go_to_jail' && isBot) {
+        if (space.action != 'go_to_jail' &&
+            isBot &&
+            !currentPlayer.isBankrupt) {
           Future.delayed(const Duration(seconds: 1), endTurn);
         }
         break;
@@ -216,7 +206,6 @@ class GameProvider with ChangeNotifier {
     if (property.owner == null) {
       _gameMessage = 'Landed on ${property.name}. Buy for \$${property.price}?';
       if (currentPlayer is BotPlayer) {
-        // Bot decision (calls endTurn internally)
         (currentPlayer as BotPlayer).decideToBuy(property, this);
       }
     } else {
@@ -228,8 +217,7 @@ class GameProvider with ChangeNotifier {
         int rent = _calculateRent(property);
         _payRent(property, rent);
       }
-      // If bot landed on owned/mortgaged property, end turn
-      if (currentPlayer is BotPlayer) {
+      if (currentPlayer is BotPlayer && !currentPlayer.isBankrupt) {
         Future.delayed(const Duration(seconds: 1), endTurn);
       }
     }
@@ -237,10 +225,8 @@ class GameProvider with ChangeNotifier {
 
   int _calculateRent(Property property) {
     if (property.isMortgaged) return 0;
-
     if (property.type == PropertyType.utility) {
       int count = _countPlayerUtilities(property.owner!);
-      // Counts include mortgaged properties for ownership count
       return count == 2 ? (_dice1 + _dice2) * 10 : (_dice1 + _dice2) * 4;
     } else if (property.type == PropertyType.railroad) {
       int count = _countPlayerRailroads(property.owner!);
@@ -269,17 +255,114 @@ class GameProvider with ChangeNotifier {
         .length;
   }
 
+  // ---- NEW PAYMENT & BANKRUPTCY SYSTEM ----
+
   void _payRent(Property property, int rent) {
     if (rent == 0) return;
     Player owner = _players.firstWhere((p) => p.id == property.owner);
-    currentPlayer.subtractMoney(rent);
-    owner.addMoney(rent);
-    _gameMessage = 'Paid \$$rent rent to ${owner.name}.';
-
-    if (currentPlayer.isBankrupt) {
-      _handleBankruptcy(owner);
+    _handlePayment(rent, owner);
+    if (!currentPlayer.isBankrupt) {
+      _gameMessage = 'Paid \$$rent rent to ${owner.name}.';
     }
   }
+
+  void _handleTax(BoardSpace space) {
+    int amount = (space.action == 'pay_200') ? 200 : 100;
+    _handlePayment(amount, null);
+    if (!currentPlayer.isBankrupt) {
+      _gameMessage = 'Paid \$$amount Tax.';
+    }
+  }
+
+  void _handlePayment(int amount, Player? creditor) {
+    // 1. Check if enough money
+    if (currentPlayer.money >= amount) {
+      currentPlayer.subtractMoney(amount);
+      if (creditor != null) creditor.addMoney(amount);
+      return;
+    }
+
+    // 2. Not enough money, try to auto-mortgage
+    _gameMessage = 'Insufficient funds! Auto-mortgaging...';
+    notifyListeners();
+
+    // Loop through properties to mortgage until we have enough
+    int needed = amount - currentPlayer.money;
+
+    // Get unmortgaged properties (sorted by lowest mortgage value first to save big ones? Or doesn't matter much here)
+    var mortgageable = currentPlayer.properties
+        .map((name) {
+          var s = _boardSpaces.firstWhere((sp) => sp.property?.name == name);
+          return s.property!;
+        })
+        .where((p) => !p.isMortgaged)
+        .toList();
+
+    for (var prop in mortgageable) {
+      if (currentPlayer.money >= amount) break;
+      // Mortgage logic
+      // First sell houses if any (simplified: auto sell homes to bank?)
+      // Note: Standard rules say sell houses first.
+      // Current impl simplified: assumes no houses or auto sells them?
+      // Let's just mortgage property (getMortgageValue).
+      int val = prop.getMortgageValue();
+      prop.isMortgaged = true;
+      currentPlayer.addMoney(val);
+      needed -= val;
+    }
+
+    // 3. Check again
+    if (currentPlayer.money >= amount) {
+      currentPlayer.subtractMoney(amount);
+      if (creditor != null) creditor.addMoney(amount);
+      _gameMessage = 'Paid \$$amount after mortgaging.';
+    } else {
+      // 4. BANKRUPTCY
+      _handleBankruptcy(creditor);
+    }
+    notifyListeners();
+  }
+
+  void _handleBankruptcy(Player? creditor) {
+    _gameMessage = '${currentPlayer.name} is BANKRUPT! Game Over for them.';
+    currentPlayer.isBankrupt = true;
+
+    // Transfer everything
+    int remainingCash = currentPlayer.money;
+    currentPlayer.subtractMoney(remainingCash);
+
+    if (creditor != null) {
+      creditor.addMoney(remainingCash);
+      // Transfer properties
+      for (var propName in List.from(currentPlayer.properties)) {
+        var space = _boardSpaces.firstWhere(
+          (s) => s.property?.name == propName,
+        );
+        var prop = space.property!;
+        prop.owner = creditor.id;
+        creditor.properties.add(propName);
+        // According to rules, creditor must pay interest on mortgaged property immediately.
+        // Simplified: just transfer logic.
+      }
+    } else {
+      // To Bank: Reset properties
+      for (var propName in currentPlayer.properties) {
+        var space = _boardSpaces.firstWhere(
+          (s) => s.property?.name == propName,
+        );
+        var prop = space.property!;
+        prop.owner = null;
+        prop.isMortgaged = false;
+        prop.houses = 0;
+      }
+    }
+    currentPlayer.properties.clear();
+
+    // Auto end turn since they are out
+    Future.delayed(const Duration(seconds: 3), endTurn);
+  }
+
+  // ------------------------------------------
 
   void buyProperty() {
     BoardSpace space = _boardSpaces[currentPlayer.position];
@@ -306,11 +389,10 @@ class GameProvider with ChangeNotifier {
       notifyListeners();
       return;
     }
-
     int value = property.getMortgageValue();
     Player owner = _players.firstWhere((p) => p.id == property.owner);
     owner.addMoney(value);
-    property.isMortgaged = true;
+    property.isMortgaged = true; // Directly set bool
     _gameMessage = '${owner.name} mortgaged ${property.name} for \$$value';
     notifyListeners();
   }
@@ -318,8 +400,9 @@ class GameProvider with ChangeNotifier {
   void unmortgageProperty(Property property) {
     if (!property.isMortgaged) return;
     Player owner = _players.firstWhere((p) => p.id == property.owner);
-
     int cost = (property.getMortgageValue() * 1.1).round();
+
+    // Use handlePayment? No, unmortgage is voluntary.
     if (owner.money >= cost) {
       owner.subtractMoney(cost);
       property.isMortgaged = false;
@@ -338,53 +421,32 @@ class GameProvider with ChangeNotifier {
   }
 
   void buildHouse(String propertyName) {
-    // Find property
     var space = _boardSpaces.firstWhere(
       (s) => s.property?.name == propertyName,
     );
     Property? property = space.property;
-    if (property == null) return;
-
-    if (property.owner != currentPlayer.id) return;
-
-    if (property.isMortgaged) {
-      _gameMessage = 'Cannot build on mortgaged property.';
-      notifyListeners();
-      return;
-    }
+    if (property == null || property.owner != currentPlayer.id) return;
+    if (property.isMortgaged) return;
 
     if (!_ownsMonopoly(property.group)) {
       _gameMessage = 'Must own full color group to build.';
       notifyListeners();
       return;
     }
-
-    bool anyMortgaged = _boardSpaces
+    if (_boardSpaces
         .where((s) => s.property?.group == property.group)
-        .any((s) => s.property?.isMortgaged ?? false);
-
-    if (anyMortgaged) {
+        .any((s) => s.property?.isMortgaged ?? false)) {
       _gameMessage = 'Cannot build if any property in group is mortgaged.';
       notifyListeners();
       return;
     }
-
-    if (property.houses >= 5) {
-      _gameMessage = 'Max buildings reached.';
-      notifyListeners();
+    if (property.houses >= 5 || currentPlayer.money < property.housePrice)
       return;
-    }
 
-    if (currentPlayer.money >= property.housePrice) {
-      currentPlayer.subtractMoney(property.housePrice);
-      property.houses++;
-      String type = property.houses == 5 ? 'Hotel' : 'House';
-      _gameMessage = 'Built a $type on ${property.name}.';
-      notifyListeners();
-    } else {
-      _gameMessage = 'Not enough money.';
-      notifyListeners();
-    }
+    currentPlayer.subtractMoney(property.housePrice);
+    property.houses++;
+    _gameMessage = 'Built on ${property.name}.';
+    notifyListeners();
   }
 
   bool _ownsMonopoly(PropertyGroup group) {
@@ -418,15 +480,12 @@ class GameProvider with ChangeNotifier {
     var card = cards[Random().nextInt(cards.length)];
     _gameMessage = 'Chance: ${card['text']}';
     _applyCardEffect(card);
-
-    // Show Dialog
     _currentCardDialog = {
       'title': 'CHANCE',
       'content': card['text'],
       'type': 'chance',
     };
     notifyListeners();
-    // Turn is NOT ended here. It waits for dialog cycle.
   }
 
   void _handleCommunityChest() {
@@ -451,15 +510,12 @@ class GameProvider with ChangeNotifier {
     var card = cards[Random().nextInt(cards.length)];
     _gameMessage = 'Community Chest: ${card['text']}';
     _applyCardEffect(card);
-
-    // Show Dialog
     _currentCardDialog = {
       'title': 'COMMUNITY CHEST',
       'content': card['text'],
       'type': 'community_chest',
     };
     notifyListeners();
-    // Turn is NOT ended here.
   }
 
   void _applyCardEffect(Map<String, dynamic> card) {
@@ -467,20 +523,20 @@ class GameProvider with ChangeNotifier {
     switch (action) {
       case 'move':
         int target = card['target'];
-        if (target == 0 && currentPlayer.position > 0)
+        int current = currentPlayer.position;
+        // Check PASS GO logic: if target < current (and target is not 10 for jail? No, standard move)
+        // Note: Moving BACKWARDS (Go back 3 spaces) is handled in move_relative.
+        // If I move from 35 to 5, 5 < 35 -> Passed Go.
+        if (target < current && target != 10) {
           currentPlayer.addMoney(200);
+        }
         currentPlayer.position = target;
-        // Do NOT recurse _handleLanding for target unless advanced rules.
-        // Standard Monopoly: If you advance to Utility (e.g. Reading RR), you handle it if unowned.
-        // For simplicity, we won't chain landings infinite, but we SHOULD handle the target landing.
         Future.microtask(() => _handleLanding());
         break;
       case 'move_relative':
         int amount = card['amount'];
-        _movePlayer(
-          amount,
-        ); // Reuse move logic which calls handleLanding via movePlayer? No movePlayer only moves.
-        // We need to handle landing after move.
+        // _movePlayer handles Pass GO logic already!
+        _movePlayer(amount);
         Future.microtask(() => _handleLanding());
         break;
       case 'money':
@@ -488,20 +544,23 @@ class GameProvider with ChangeNotifier {
         if (amount > 0)
           currentPlayer.addMoney(amount);
         else
-          currentPlayer.subtractMoney(amount.abs());
+          _handlePayment(amount.abs(), null);
+        break;
+      case 'jail_free':
+        currentPlayer.getOutOfJailCards++;
+        _gameMessage = 'Received a Get Out of Jail Free Card!';
         break;
       case 'jail':
         _sendToJail();
         break;
       case 'repairs':
-        currentPlayer.subtractMoney(50);
+        _handlePayment(50, null);
         break;
       case 'pay_all':
         int amount = card['amount'];
         for (var p in _players) {
           if (p != currentPlayer && !p.isBankrupt) {
-            currentPlayer.subtractMoney(amount);
-            p.addMoney(amount);
+            _handlePayment(amount, p);
           }
         }
         break;
@@ -509,21 +568,23 @@ class GameProvider with ChangeNotifier {
         int amount = card['amount'];
         for (var p in _players) {
           if (p != currentPlayer && !p.isBankrupt) {
-            p.subtractMoney(amount);
-            currentPlayer.addMoney(amount);
+            // Other plays pay current player. We can't use _handlePayment easily as 'currentPlayer' is hardcoded there.
+            // We need to deduct from p and add to currentPlayer.
+            // We should implement p.payOrBankrupt logic?
+            // For simplicity, just direct deduct/add or implement handlePaymentFor(p, amount, creditor).
+            if (p.money >= amount) {
+              p.subtractMoney(amount);
+              currentPlayer.addMoney(amount);
+            } else {
+              // If bot cannot pay, they go bankrupt to currentPlayer?
+              // This is getting complex. Let's subtract what they have.
+              int avail = p.money;
+              p.subtractMoney(avail);
+              currentPlayer.addMoney(avail);
+            }
           }
         }
         break;
-    }
-  }
-
-  void _handleTax(BoardSpace space) {
-    if (space.action == 'pay_200') {
-      currentPlayer.subtractMoney(200);
-      _gameMessage = 'Paid \$200 Income Tax.';
-    } else {
-      currentPlayer.subtractMoney(100);
-      _gameMessage = 'Paid \$100 Luxury Tax.';
     }
   }
 
@@ -537,10 +598,8 @@ class GameProvider with ChangeNotifier {
     currentPlayer.goToJail();
     _gameMessage = 'Go to Jail! Turn Ended.';
     _doublesCount = 0;
-    _hasRolledDice = true; // Block rolling
+    _hasRolledDice = true;
     notifyListeners();
-
-    // Jail ALWAYS ends turn automatically for everyone after a brief delay
     Future.delayed(const Duration(seconds: 2), endTurn);
   }
 
@@ -550,10 +609,17 @@ class GameProvider with ChangeNotifier {
   }
 
   void _nextTurn() {
+    int activePlayers = _players.where((p) => !p.isBankrupt).length;
+    if (activePlayers <= 1) {
+      _gameMessage =
+          'GAME OVER! Winner is ${_players.firstWhere((p) => !p.isBankrupt).name}';
+      notifyListeners();
+      return;
+    }
+
     do {
       _currentPlayerIndex = (_currentPlayerIndex + 1) % _players.length;
-    } while (currentPlayer.isBankrupt &&
-        _players.where((p) => !p.isBankrupt).length > 1);
+    } while (currentPlayer.isBankrupt);
 
     _hasRolledDice = false;
     _doublesCount = 0;
@@ -566,35 +632,29 @@ class GameProvider with ChangeNotifier {
   }
 
   void _handleBotTurn() {
-    // Bot logic: Roll, then decisions happen in Landing.
     Future.delayed(const Duration(seconds: 1), () {
       if (currentPlayer.isInJail) {
-        // Simple jail strategy
-        rollDice();
+        rollDice(); // Simpler jail logic
       } else {
         rollDice();
       }
     });
   }
 
-  void _handleBankruptcy(Player? creditor) {
-    _gameMessage = '${currentPlayer.name} went Bankrupt!';
-    for (var s in _boardSpaces) {
-      if (s.property?.owner == currentPlayer.id) {
-        s.property!.owner = null;
-        s.property!.houses = 0;
-        s.property!.isMortgaged = false;
-      }
-    }
-    currentPlayer.properties.clear();
-    notifyListeners();
-  }
-
   void payToLeaveJail() {
-    if (currentPlayer.money >= 50) {
-      currentPlayer.subtractMoney(50);
+    _handlePayment(50, null);
+    if (!currentPlayer.isBankrupt) {
       currentPlayer.releaseFromJail();
       _gameMessage = 'Paid \$50 to leave Jail.';
+      notifyListeners();
+    }
+  }
+
+  void useGetOutOfJailCard() {
+    if (currentPlayer.getOutOfJailCards > 0 && currentPlayer.isInJail) {
+      currentPlayer.getOutOfJailCards--;
+      currentPlayer.releaseFromJail();
+      _gameMessage = '${currentPlayer.name} used a Get Out of Jail Free Card!';
       notifyListeners();
     }
   }
