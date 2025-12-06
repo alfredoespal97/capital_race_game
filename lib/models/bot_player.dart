@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'dart:async';
 import 'player.dart';
 
@@ -125,5 +126,30 @@ class BotPlayer extends Player {
         gameProvider.endTurn();
       }
     });
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    var json = super.toJson();
+    json['type'] = 'bot';
+    json['difficulty'] = difficulty.index;
+    return json;
+  }
+
+  factory BotPlayer.fromJson(Map<String, dynamic> json) {
+    return BotPlayer(
+      id: json['id'],
+      name: json['name'],
+      color: Color(json['color']),
+      icon: IconData(json['icon'], fontFamily: 'MaterialIcons'),
+      difficulty: BotDifficulty.values[json['difficulty']],
+      money: json['money'],
+      position: json['position'],
+      properties: List<String>.from(json['properties']),
+      isInJail: json['isInJail'],
+      jailTurns: json['jailTurns'],
+      getOutOfJailCards: json['getOutOfJailCards'],
+      isBankrupt: json['isBankrupt'],
+    );
   }
 }

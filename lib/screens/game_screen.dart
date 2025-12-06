@@ -386,6 +386,16 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
           ],
+          IconButton(
+            icon: const Icon(Icons.save, color: Colors.white),
+            tooltip: 'Save Game',
+            onPressed: () {
+              gameProvider.saveGame();
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Game Saved!')));
+            },
+          ),
           const Spacer(),
           Container(
             padding: EdgeInsets.symmetric(
@@ -881,10 +891,21 @@ class _GameScreenState extends State<GameScreen> {
           ),
           TextButton(
             onPressed: () {
+              Provider.of<GameProvider>(context, listen: false).saveGame();
               Navigator.pop(context);
               Navigator.pop(context);
             },
-            child: const Text('EXIT'),
+            child: const Text('SAVE & EXIT'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text(
+              'EXIT WITHOUT SAVING',
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),

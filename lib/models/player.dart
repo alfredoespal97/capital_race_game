@@ -5,7 +5,7 @@ class Player {
   final String name;
   final Color color;
   final IconData icon;
-  
+
   int money;
   int position;
   List<String> properties;
@@ -58,5 +58,38 @@ class Player {
   void releaseFromJail() {
     isInJail = false;
     jailTurns = 0;
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'type': 'human',
+      'id': id,
+      'name': name,
+      'color': color.value,
+      'icon': icon.codePoint, // Store codePoint for IconData
+      'money': money,
+      'position': position,
+      'properties': properties,
+      'isInJail': isInJail,
+      'jailTurns': jailTurns,
+      'getOutOfJailCards': getOutOfJailCards,
+      'isBankrupt': isBankrupt,
+    };
+  }
+
+  factory Player.fromJson(Map<String, dynamic> json) {
+    return Player(
+      id: json['id'],
+      name: json['name'],
+      color: Color(json['color']),
+      icon: IconData(json['icon'], fontFamily: 'MaterialIcons'),
+      money: json['money'],
+      position: json['position'],
+      properties: List<String>.from(json['properties']),
+      isInJail: json['isInJail'],
+      jailTurns: json['jailTurns'],
+      getOutOfJailCards: json['getOutOfJailCards'],
+      isBankrupt: json['isBankrupt'],
+    );
   }
 }

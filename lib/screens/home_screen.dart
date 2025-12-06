@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/game_provider.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Listen to GameProvider to update UI when save status changes
+    final gameProvider = Provider.of<GameProvider>(context);
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -78,6 +83,29 @@ class HomeScreen extends StatelessWidget {
 
                 const SizedBox(height: 60),
 
+                // Resume Game Button (Only if save exists)
+                if (gameProvider.hasSaveFile) ...[
+                  _buildMenuButton(
+                    context,
+                    label: 'RESUME GAME',
+                    icon: Icons.restore,
+                    color: Colors.orange,
+                    onPressed: () async {
+                      bool success = await gameProvider.loadGame();
+                      if (success && context.mounted) {
+                        Navigator.pushNamed(context, '/game');
+                      } else if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Failed to load save game.'),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
                 // Play Button
                 _buildMenuButton(
                   context,
@@ -124,6 +152,7 @@ class HomeScreen extends StatelessWidget {
     required String label,
     required IconData icon,
     required VoidCallback onPressed,
+    Color color = Colors.white,
   }) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -135,13 +164,10 @@ class HomeScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                Colors.white.withOpacity(0.2),
-                Colors.white.withOpacity(0.1),
-              ],
+              colors: [color.withOpacity(0.2), color.withOpacity(0.1)],
             ),
             borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+            border: Border.all(color: color.withOpacity(0.3), width: 2),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.3),
@@ -153,12 +179,12 @@ class HomeScreen extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Colors.white, size: 30),
+              Icon(icon, color: color, size: 30),
               const SizedBox(width: 15),
               Text(
                 label,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: color,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 2,

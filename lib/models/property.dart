@@ -10,7 +10,7 @@ class Property {
   final int housePrice;
   final PropertyGroup group;
   final Color color;
-  
+
   String? owner;
   int houses;
   bool isMortgaged;
@@ -38,14 +38,23 @@ class Property {
   }
 
   int getMortgageValue() => price ~/ 2;
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'owner': owner,
+      'houses': houses,
+      'isMortgaged': isMortgaged,
+    };
+  }
+
+  void updateFromJson(Map<String, dynamic> json) {
+    owner = json['owner'];
+    houses = json['houses'] ?? 0;
+    isMortgaged = json['isMortgaged'] ?? false;
+  }
 }
 
-enum PropertyType {
-  street,
-  railroad,
-  utility,
-  special,
-}
+enum PropertyType { street, railroad, utility, special }
 
 enum PropertyGroup {
   brown,

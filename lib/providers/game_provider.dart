@@ -5,6 +5,8 @@ import '../models/property.dart';
 import '../models/bot_player.dart';
 import '../data/board_data.dart';
 import 'dart:async'; // For Timer/Future
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class GameProvider with ChangeNotifier {
   List<Player> _players = [];
@@ -17,11 +19,21 @@ class GameProvider with ChangeNotifier {
   int _doublesCount = 0;
   bool _hasRolledDice = false;
 
+  bool _hasSaveFile = false;
+  bool get hasSaveFile => _hasSaveFile;
+
   Map<String, dynamic>? _currentCardDialog;
   Map<String, dynamic>? get currentCardDialog => _currentCardDialog;
 
   GameProvider() {
     _initGame();
+    _checkSaveFile();
+  }
+
+  Future<void> _checkSaveFile() async {
+    final prefs = await SharedPreferences.getInstance();
+    _hasSaveFile = prefs.containsKey('monopoly_save_game');
+    notifyListeners();
   }
 
   List<Player> get players => _players;
@@ -656,6 +668,92 @@ class GameProvider with ChangeNotifier {
       currentPlayer.releaseFromJail();
       _gameMessage = '${currentPlayer.name} used a Get Out of Jail Free Card!';
       notifyListeners();
+    }
+  }
+
+  // --- Persistence Methods ---
+
+  Future<void> saveGame() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Serialize Players
+    List<Map<String, dynamic>> playersJson = _players
+        .map((p) => p.toJson())
+        .toList();
+
+    // Serialize Properties (Only owned or modified ones to save space/time, or all)
+    List<Map<String, dynamic>> propertiesJson = [];
+    for (var space in _boardSpaces) {
+      if (space.property != null) {
+        propertiesJson.add(space.property!.toJson());
+      }
+    }
+
+    Map<String, dynamic> gameState = {
+      'players': playersJson,
+      'properties': propertiesJson,
+      'currentPlayerIndex': _currentPlayerIndex,
+      'dice1': _dice1,
+      'dice2': _dice2,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+
+    await prefs.setString('monopoly_save_game', jsonEncode(gameState));
+    _hasSaveFile = true;
+    _gameMessage = "Game Saved!";
+    notifyListeners();
+  }
+
+  Future<bool> hasSavedGame() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.containsKey('monopoly_save_game');
+  }
+
+  Future<bool> loadGame() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? jsonStr = prefs.getString('monopoly_save_game');
+      if (jsonStr == null) return false;
+
+      Map<String, dynamic> gameState = jsonDecode(jsonStr);
+
+      _initGame(); // Reset board to defaults first
+
+      // Restore Players
+      List<dynamic> playersList = gameState['players'];
+      _players = playersList.map<Player>((pJson) {
+        if (pJson['type'] == 'bot') {
+          return BotPlayer.fromJson(pJson);
+        } else {
+          return Player.fromJson(pJson);
+        }
+      }).toList();
+
+      // Restore Properties
+      List<dynamic> propsList = gameState['properties'];
+      for (var propJson in propsList) {
+        String name = propJson['name'];
+        try {
+          var space = _boardSpaces.firstWhere((s) => s.property?.name == name);
+          space.property!.updateFromJson(propJson);
+        } catch (e) {
+          print("Error restoring property $name: $e");
+        }
+      }
+
+      _currentPlayerIndex = gameState['currentPlayerIndex'];
+      _dice1 = gameState['dice1'] ?? 1;
+      _dice2 = gameState['dice2'] ?? 1;
+      _gameMessage =
+          "Game Loaded! ${_players[_currentPlayerIndex].name}'s Turn.";
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print("Error loading game: $e");
+      _gameMessage = "Failed to load game.";
+      notifyListeners();
+      return false;
     }
   }
 }
