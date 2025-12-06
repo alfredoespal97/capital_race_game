@@ -1,40 +1,49 @@
-
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'screens/home_screen.dart';
+import 'screens/game_mode_screen.dart';
+import 'screens/game_screen.dart';
+import 'providers/game_provider.dart';
 
-import 'package:capital_race/src/screens/home_screen.dart';
-import 'package:capital_race/src/screens/difficulty_selection_screen.dart';
-
-// La referencia global se obtiene del nuevo archivo
-export 'package:capital_race/src/game_state.dart' show globalGameState;
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Hive.initFlutter(); 
-
-  runApp(const MyApp());
+void main() {
+  runApp(const MonopolyApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MonopolyApp extends StatelessWidget {
+  const MonopolyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Capital Race',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        textTheme: GoogleFonts.latoTextTheme(
-          Theme.of(context).textTheme,
+    return ChangeNotifierProvider(
+      create: (_) => GameProvider(),
+      child: MaterialApp(
+        title: 'Monopoly Game',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF8B0000),
+            brightness: Brightness.light,
+          ),
+          textTheme: GoogleFonts.poppinsTextTheme(),
         ),
+        darkTheme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF8B0000),
+            brightness: Brightness.dark,
+          ),
+          textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
+        ),
+        themeMode: ThemeMode.light,
+        initialRoute: '/',
+        routes: {
+          '/': (context) => const HomeScreen(),
+          '/mode': (context) => const GameModeScreen(),
+          '/game': (context) => const GameScreen(),
+        },
       ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const HomeScreen(),
-        '/difficulty': (context) => const DifficultySelectionScreen(),
-      },
     );
   }
 }
