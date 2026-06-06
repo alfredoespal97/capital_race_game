@@ -24,10 +24,12 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                 // Logo and Title
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -144,7 +146,8 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildMenuButton(
